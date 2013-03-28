@@ -136,6 +136,8 @@ if (Meteor.isClient) {
     // tests:
 
     test = function(){
+	Waterplace.find().fetch().map(function(x){Waterplace.remove(x._id)});
+
 	var ayalast = new WP('/users/ayal/name/last');	
 	var amirlast = new WP('/users/amir/name/last');
 	amirlast.on('value', function(c){
