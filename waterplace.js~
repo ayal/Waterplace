@@ -1,0 +1,149 @@
+// REST with limit/skip?
+// security + security interface
+// client side script
+// multiple water places and associate with users
+// UI like forge
+// indexes?
+
+var Waterplace = new Meteor.Collection("waterplace");
+
+if (Meteor.isClient) {
+    /// users/fred/name/last
+    WP = function(url) {
+	// TODO: optimize with general cache for url --> objects
+	var self = this;
+	this.ref = null;
+	var parts = url.trim('/').split('/').reverse();
+	var lastpart = null;
+	$.each(parts, function(i, p){
+            parts[i] = parts.slice(i).reverse().join('/');
+	});
+
+	$.each(parts, function(i, part){
+	    var kv = Waterplace.findOne({key: part});
+	    var id = null;
+	    if (!kv) {
+		// add time
+		var values = {};
+		var lastref = null;
+		if (lastpart) {
+		    values[lastpart.key] = lastpart.id;
+		}
+		if (part) {
+		    id = Waterplace.insert({key: part, values: values});
+		}
+	    }
+	    else {
+		id = kv._id;
+		if (lastpart) {
+		    var toupdate = {};
+		    toupdate['values.' + lastpart.key] = lastpart.id;
+		    Waterplace.update(kv._id, {$set: toupdate});
+		}
+	    }
+
+	    if (lastpart) {
+		Waterplace.update(lastpart._id, {$set: {parent: id}})
+	    }
+
+	    lastpart = {id: id, key: part};
+	    if (!self._ref) {
+		self._ref = lastpart;
+		self.ref = function() {
+		    return Waterplace.findOne(self._ref.id);
+		};
+	    }
+	});
+
+	var objectify = function(x) {
+	    if (!x) {
+		return null;
+	    }
+
+	    if (!x.values) {
+		return x.value;
+	    }
+
+	    if (!x.key) {
+		return x.value;
+	    }
+
+	    var obj = {};
+	    var parent = {}
+	    parent[x.key.split('/').splice(-1)[0]] = obj;
+
+	    $.each(x.values, function(k,v) {
+		var key = k.split('/').splice(-1)[0];
+		$.extend(obj, objectify(Waterplace.findOne(v))); 
+	    });
+	    
+	    return parent;
+	};
+
+	this.val = function(){
+	    return objectify(self.ref());
+	}
+
+	this.set = function(obj) {
+	    if (typeof v !== 'object') {
+		Waterplace.update(id);
+		return self;
+	    }
+
+	    $.each(sobj, function(k,v) {
+		var n = new WP(sobj.key + '/' + k);
+		n.set(v);
+	    });
+	    return self;
+	};
+
+	this.push = function(){
+	    // TODO: add type array with 0,1,2 as keys and special objectify treatment
+	}
+
+	this.on = function(what, cb) {
+	    Waterplace.find().observe({
+		added: function(obj) {
+		    // triggered twice if client inserts?
+		    var ref = self.ref();
+		    if (obj && obj.key && obj.key.indexOf(ref.key) === 0 && 
+			obj.key.split('/').length - 1 === ref.key.split('/').length) {
+			what === 'child_added' && cb(new WP(obj.key));
+		    }
+		},
+		changed: function(obj, old) {
+		    // no old object
+		    var ref = self.ref();
+		    if (obj &&  obj.key && obj.key.indexOf(ref.key) === 0) {
+			what === 'value' && cb(new WP(ref.key));
+		    }
+		}
+	    });	
+	};
+    }
+
+
+    test = function(){
+	setTimeout(function(){
+	    var ayal = new WP('/users/ayal/name/first');	
+	},0);
+
+	setTimeout(function(){
+	    var amir = new WP('/users/amir/name/first');
+	},5000);
+    }
+    
+    var users = new WP('/users');
+    users.on('child_added', function(user){
+	console.log('added', user.val());
+    });
+
+    users.on('value', function(user){
+	console.log('changed', user.val());
+    });
+
+}
+
+if (Meteor.isServer) {
+    
+}
