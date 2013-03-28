@@ -136,10 +136,10 @@ if (Meteor.isClient) {
     // tests:
 
     test = function(){
-	Waterplace.find().fetch().map(function(x){Waterplace.remove(x._id)});
 
-	var ayalast = new WP('/users/ayal/name/last');	
-	var amirlast = new WP('/users/amir/name/last');
+
+	var ayalast = new WP('/users/' + new Date().getTime() + '-ayal/name/last');	
+	var amirlast = new WP('/users/' + new Date().getTime() + '-amir/name/last');
 	amirlast.on('value', function(c){
 	    console.log('amirlast changed', JSON.stringify(c.val()));
 	    console.log(Waterplace.find().fetch());
@@ -148,14 +148,17 @@ if (Meteor.isClient) {
 	ayalast.set('gelles');
 	amirlast.set({thename: {is: {gafner: true}}});
     }
-    
-    var users = new WP('/users');
-    users.on('child_added', function(user){
-	console.log('added', user.val());
-    });
 
-    users.on('value', function(user){
-	console.log('changed', user.val());
+    Meteor.startup(function() {
+	var users = new WP('/users');
+	users.on('child_added', function(user){
+	    console.log('child added', user.val());
+	});
+
+	users.on('value', function(user){
+	    console.log('changed', user.val());
+	});
+
     });
 
 }
